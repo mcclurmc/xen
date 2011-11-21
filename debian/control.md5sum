@@ -1,0 +1,16 @@
+a789cf19d423f03a754c6027dd26de91  debian/changelog
+24fe32e32b99cd3804adfe7a5340dc76  debian/bin/gencontrol.py
+667edd28bcda9cd243bb69c78e452aad  debian/templates/control.hypervisor.in
+b9897d33d0810a05900184c3e1a97683  debian/templates/control.main.in
+80b9d5dd5821d434be13f46608ffa2d8  debian/templates/control.source.in
+92c32bf7b0389c47b11d05885f605750  debian/templates/control.utils.in
+8a997c1eed937c45381afc2e51e64385  debian/templates/libxen-ocaml-dev.install.in
+b7a336213e52089c2924f56bff9bf0fa  debian/templates/libxen-ocaml.install.in
+a15fa64ce6deead28d33c1581b14dba7  debian/templates/xen-hypervisor.postinst.in
+22492e0565a4754b5e008ca7cac871da  debian/templates/xen-hypervisor.postrm.in
+dcabf82578122540e0534f72750698d5  debian/templates/xen-utils.lintian-overrides.in
+de69fbeefaec8cd21073546beae98e53  debian/templates/xen-utils.postinst.in
+157d1c2c87b4d3d3e6e9a439242b9cac  debian/templates/xen-utils.prerm.in
+2f0cc6973a228e4002e5b89f756e3d58  debian/arch/defines
+7eec83f6c765a660ebaeb80dc4b433ad  debian/arch/amd64/defines
+5441af74c3b47034f0efb0226b9c3723  debian/arch/i386/defines

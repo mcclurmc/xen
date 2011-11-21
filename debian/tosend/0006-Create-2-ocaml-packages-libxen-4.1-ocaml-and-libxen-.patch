@@ -1,0 +1,375 @@
+From 3b802a1169f1ca984f443ff0111c08e275d4c7bf Mon Sep 17 00:00:00 2001
+From: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+Date: Mon, 24 Oct 2011 14:27:44 +0000
+Subject: Re: [OCAML 6/7] Create 2 ocaml packages, libxen-4.1-ocaml and
+ libxen-4.1-ocaml-dev.
+To: pkg-xen-devel@lists.alioth.debian.org
+Cc: debian-ocaml-maint@lists.debian.org
+
+This is is an update of patch 6 sent yesterday. Changes are:
+
+ * The packages it creates are now named libxen-4.1-ocaml and
+   libxen-4.1-ocaml-dev as per Stéphane's suggestion. The
+   dependencies have been tweaked similarly. The generated debs
+   have fields that look like:
+
+(libxen-4.1-ocaml)
+ Depends: ocaml-base-nox-3.12.0, libc6 (>= 2.4), libxen-4.1 (>= 4.1.2)
+ Provides: libxen-4.1-ocaml-dedh4
+
+(libxen-4.1-ocaml-dev)
+ Depends: libxen-4.1-ocaml (= 4.1.2-1), ocaml-findlib (>= 1.1), ocaml-nox-3.12.0
+ Provides: libxen-4.1-ocaml-dev-dedh4
+
+ * Removed a stray explicit '4.1' that should have been $(VERSION)
+   in the rules.real file 
+
+ * Removed the explicit 'Architecture: all' statements in favour 
+   of letting the autogeneration do it.
+
+ * Moved both ocaml packages into the 'ocaml' section.
+
+ * Use @ocaml_stdlib_dir@ and @ocaml_dll_dir@ in the template 
+   install files.
+
+OCAML_STDLIB_DIR and OCAML_DLL_DIR are still not being taken from
+the standard place (/usr/share/ocaml/ocamlvars.mk or via
+dh_ocamlinit). The main reason is that the xen debian files
+already have in place a system for preprocessing the x.install.in
+files to create x.install files using variable substitution. It
+would be awkward to have to have _some_ variables substituted by
+debian/bin/gencontrol.py, generating an intermediate template
+which is then subjected to additional variable substitutions by
+dh_ocamlinit. Additionally, dh_ocamlinit attempts to operate on
+any file underneath the debian/ subdirectory that ends in '.in',
+so it works on the same set of files that gencontrol.py works
+on. This doesn't cause problems, but it does litter the templates
+directory with half-processed unnecessary files.
+
+The other available method for getting OCAML_STDLIB_DIR is by
+including the makefile fragment /usr/share/ocaml/ocamlvars.mk in
+debian/rules. If we did this, we'd have to pass the value on to
+gencontrol.py. This is doable, but again a little awkward. It
+would also require that dh_ocaml was installed on the system on
+which the control file was being generated, which would not fail
+gracefully.
+
+So the patch below generates the two variables in the same way
+that both the makefile fragment and dh_ocamlinit do - by
+executing 'ocamlc -where' and appending /stublibs. I've left a
+comment immediately above this line stating where to look to find
+these runes in case they do change.
+
+Comments most welcome!
+
+Jon
+
+---
+ xen/debian/bin/gencontrol.py                     |   12 ++++-
+ xen/debian/patches/series                        |    1 +
+ xen/debian/patches/tools-ocaml-fix-build.diff    |   60 ++++++++++++++++++++++
+ xen/debian/rules                                 |    2 +-
+ xen/debian/rules.real                            |   34 ++++++++++++
+ xen/debian/templates/control.main.in             |   16 ++++++
+ xen/debian/templates/control.source.in           |    5 ++-
+ xen/debian/templates/libxen-ocaml-dev.install.in |   25 +++++++++
+ xen/debian/templates/libxen-ocaml.install.in     |   14 +++++
+ 9 files changed, 166 insertions(+), 3 deletions(-)
+ create mode 100644 xen/debian/patches/tools-ocaml-fix-build.diff
+ create mode 100644 xen/debian/templates/libxen-ocaml-dev.install.in
+ create mode 100644 xen/debian/templates/libxen-ocaml.install.in
+
+diff --git a/xen/debian/bin/gencontrol.py b/xen/debian/bin/gencontrol.py
+index f2b7424..30a9978 100755
+--- a/xen/debian/bin/gencontrol.py
++++ b/xen/debian/bin/gencontrol.py
+@@ -1,6 +1,6 @@
+ #!/usr/bin/env python
+ 
+-import os, sys
++import os, sys, subprocess
+ sys.path.append(os.path.join(sys.path[0], "../lib/python"))
+ 
+ from debian_xen.debian import VersionXen, PackageFieldList
+@@ -49,6 +49,11 @@ class Gencontrol(Base):
+             j = self.substitute(self.templates["xen-utils.%s" % i], vars)
+             file("debian/%s.%s" % (package_utils_name, i), 'w').write(j)
+ 
++	for (i,j) in (('libxen-ocaml.install','libxen-%s-ocaml' % self.version.xen_version), 
++		      ('libxen-ocaml-dev.install','libxen-%s-ocaml-dev' % self.version.xen_version)):
++	    k = self.substitute(self.templates[i], vars)
++	    file("debian/%s.install" % j, 'w').write(k)
++
+         cmds_binary_arch = ["$(MAKE) -f debian/rules.real binary-arch-arch %s" % makeflags]
+         cmds_build = ["$(MAKE) -f debian/rules.real build-arch %s" % makeflags]
+         cmds_setup = ["$(MAKE) -f debian/rules.real setup-arch %s" % makeflags]
+@@ -103,8 +108,13 @@ class Gencontrol(Base):
+     def process_changelog(self):
+         changelog = Changelog(version = VersionXen)
+         self.version = changelog[0].version
++        # Nb. Check /usr/share/ocaml/ocamlvars.mk for OCAML_STDLIB_DIR and OCAML_DLL_DIR
++        ocaml_stdlib_dir = subprocess.check_output(["ocamlc", "-where"]).rstrip()
++        ocaml_dll_dir = ocaml_stdlib_dir + "/stublibs"
+         self.vars = {
+             'version': self.version.xen_version,
++            'ocaml_stdlib_dir': ocaml_stdlib_dir,
++            'ocaml_dll_dir': ocaml_dll_dir,
+         }
+ 
+ if __name__ == '__main__':
+diff --git a/xen/debian/patches/series b/xen/debian/patches/series
+index 8f816da..a576794 100644
+--- a/xen/debian/patches/series
++++ b/xen/debian/patches/series
+@@ -57,3 +57,4 @@ tools-ocaml-fix-xc-dependencies.diff
+ tools-ocaml-remove-uuid.diff
+ tools-ocaml-remove-log.diff
+ tools-ocaml-fix-xc.diff
++tools-ocaml-fix-build.diff
+diff --git a/xen/debian/patches/tools-ocaml-fix-build.diff b/xen/debian/patches/tools-ocaml-fix-build.diff
+new file mode 100644
+index 0000000..52fa7d5
+--- /dev/null
++++ b/xen/debian/patches/tools-ocaml-fix-build.diff
+@@ -0,0 +1,60 @@
++Fix the build of the ocaml libraries 
++
++Signed-off-by: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
++
++--- a/tools/ocaml/Makefile.rules
+++++ b/tools/ocaml/Makefile.rules
++@@ -58,14 +58,8 @@
++ 
++ # define a library target <name>.cmxa and <name>.cma
++ define OCAML_LIBRARY_template
++- $(1).cmxa: lib$(1)_stubs.a $(foreach obj,$($(1)_OBJS),$(obj).cmx)
++-	$(call mk-caml-lib-native,$$@, -cclib -l$(1)_stubs $(foreach lib,$(LIBS_$(1)),-cclib $(lib)), $(foreach obj,$($(1)_OBJS),$(obj).cmx))
++- $(1).cma: $(foreach obj,$($(1)_OBJS),$(obj).cmo)
++-	$(call mk-caml-lib-bytecode,$$@, -dllib dll$(1)_stubs.so -cclib -l$(1)_stubs, $$+)
++- $(1)_stubs.a: $(foreach obj,$$($(1)_C_OBJS),$(obj).o)
++-	$(call mk-caml-stubs,$$@, $$+)
++- lib$(1)_stubs.a: $(foreach obj,$($(1)_C_OBJS),$(obj).o)
++-	$(call mk-caml-lib-stubs,$$@, $$+, $(LIBS_$(1)))
+++ $(1).cma: $(foreach obj,$($(1)_OBJS),$(obj).cmx $(obj).cmo) $(foreach obj,$($(1)_C_OBJS),$(obj).o) 
+++	$(OCAMLMKLIB) -o $1 -oc $(1)_stubs $(foreach obj,$($(1)_OBJS),$(obj).cmx $(obj).cmo) $(foreach obj,$($(1)_C_OBJS),$(obj).o) $(foreach lib, $(LIBS_$(1)_COMPILETIME), -cclib $(lib)) $(foreach arg,$(LIBS_$(1)),-ldopt $(arg))
++ endef
++ 
++ define OCAML_NOC_LIBRARY_template
++--- a/tools/ocaml/libs/xc/Makefile
+++++ b/tools/ocaml/libs/xc/Makefile
++@@ -9,7 +9,8 @@
++ INTF = xenctrl.cmi
++ LIBS = xenctrl.cma xenctrl.cmxa
++ 
++-LIBS_xenctrl = -L$(XEN_ROOT)/tools/libxc -lxenctrl -lxenguest
+++LIBS_xenctrl = $(LDLIBS_libxenctrl) $(LDLIBS_libxenguest)
+++LIBS_xenctrl_COMPILETIME = -lxenguest-4.1 -lxenctrl-4.1
++ 
++ xenctrl_OBJS = $(OBJS)
++ xenctrl_C_OBJS = xenctrl_stubs
++--- a/tools/ocaml/xenstored/Makefile
+++++ b/tools/ocaml/xenstored/Makefile
++@@ -36,7 +36,11 @@
++ 	-ccopt -L -ccopt $(OCAML_TOPLEVEL)/libs/eventchn $(OCAML_TOPLEVEL)/libs/eventchn/xeneventchn.cmxa \
++ 	-ccopt -L -ccopt $(OCAML_TOPLEVEL)/libs/xc $(OCAML_TOPLEVEL)/libs/xc/xenctrl.cmxa \
++ 	-ccopt -L -ccopt $(OCAML_TOPLEVEL)/libs/xb $(OCAML_TOPLEVEL)/libs/xb/xenbus.cmxa \
++-	-ccopt -L -ccopt $(XEN_ROOT)/tools/libxc
+++	-ccopt -L -ccopt $(XEN_ROOT)/tools/libxc \
+++	$(foreach obj, $(LDLIBS_libxenctrl), -ccopt $(obj)) \
+++        $(foreach obj, $(LDLIBS_libxenguest), -ccopt $(obj))
+++
+++
++ 
++ PROGRAMS = oxenstored
++ 
++--- a/tools/ocaml/libs/eventchn/Makefile
+++++ b/tools/ocaml/libs/eventchn/Makefile
++@@ -7,6 +7,7 @@
++ LIBS = xeneventchn.cma xeneventchn.cmxa
++ 
++ LIBS_xeneventchn = $(LDLIBS_libxenctrl)
+++LIBS_xeneventchn_COMPILETIME = -lxenctrl-4.1 -lxenguest-4.1
++ 
++ all: $(INTF) $(LIBS) $(PROGRAMS)
++ 
+diff --git a/xen/debian/rules b/xen/debian/rules
+index aade4fb..1548d24 100755
+--- a/xen/debian/rules
++++ b/xen/debian/rules
+@@ -28,7 +28,7 @@ $(STAMPS_DIR)/build-base: $(STAMPS_DIR)/setup-base
+ 	@$(stamp)
+ 
+ maintainerclean:
+-	rm -f debian/control* debian/rules.gen debian/xen-hypervisor-* debian/xen-utils-*
++	rm -f debian/control* debian/rules.gen debian/xen-hypervisor-* debian/xen-utils-* debian/libxen-*ocaml*.install
+ 	rm -rf $(filter-out .svn debian, $(wildcard * .[^.]*))
+ 
+ clean: debian/control
+diff --git a/xen/debian/rules.real b/xen/debian/rules.real
+index f4656f8..557fe8c 100644
+--- a/xen/debian/rules.real
++++ b/xen/debian/rules.real
+@@ -1,7 +1,11 @@
++include /usr/share/ocaml/ocamlvars.mk
++
+ DEB_HOST_ARCH     := $(shell dpkg-architecture -a$(ARCH) -qDEB_HOST_ARCH)
+ DEB_HOST_GNU_TYPE := $(shell dpkg-architecture -a$(ARCH) -qDEB_HOST_GNU_TYPE)
+ DEB_BUILD_ARCH    := $(shell dpkg-architecture -a$(ARCH) -qDEB_BUILD_ARCH)
+ 
++GENCONTROL_ARGS   := -VF:OCamlABI="$(OCAML_ABI)"
++
+ export DH_OPTIONS
+ 
+ setup_env := env -u ARCH -u FLAVOUR -u VERSION -u MAKEFLAGS
+@@ -18,6 +22,8 @@ binary-arch-arch: install-libxen-dev_$(ARCH)
+ binary-arch-arch: install-libxenstore_$(ARCH)
+ binary-arch-arch: install-utils_$(ARCH)
+ binary-arch-arch: install-xenstore-utils_$(ARCH)
++binary-arch-arch: install-lib-ocaml-dev_$(ARCH)
++binary-arch-arch: install-lib-ocaml_$(ARCH)
+ binary-arch-flavour: install-hypervisor_$(ARCH)_$(FLAVOUR)
+ 
+ binary-indep: install-docs
+@@ -71,6 +77,7 @@ $(STAMPS_DIR)/install-utils_$(ARCH): CONFIG = \
+ 		XEN_COMPILE_ARCH=$(XEN_ARCH) \
+ 		XEN_TARGET_ARCH=$(XEN_ARCH) \
+ 		XEN_VERSION=$(VERSION) \
++		OCAMLDESTDIR=$(CURDIR)/$(BUILD_DIR)/install-utils_$(ARCH)_ocaml/$(OCAML_STDLIB_DIR) \
+ 		PYTHON=$(shell pyversions -r)
+ 
+ $(STAMPS_DIR)/build-utils_$(ARCH): DIR=$(BUILD_DIR)/build-utils_$(ARCH)
+@@ -82,6 +89,7 @@ $(STAMPS_DIR)/install-utils_$(ARCH): DIR = $(BUILD_DIR)/build-utils_$(ARCH)
+ $(STAMPS_DIR)/install-utils_$(ARCH): INSTALL_DIR = $(BUILD_DIR)/install-utils_$(ARCH)
+ $(STAMPS_DIR)/install-utils_$(ARCH): $(STAMPS_DIR)/build-utils_$(ARCH)
+ 	@rm -rf $(INSTALL_DIR)
++	mkdir -p $(INSTALL_DIR)_ocaml/$(OCAML_DLL_DIR)
+ 	+$(MAKE_CLEAN) -C $(DIR)/tools install DESTDIR=$(CURDIR)/$(INSTALL_DIR) $(CONFIG)
+ 	# hvmloader
+ 	#strip --remove-section=.comment --remove-section=.note $(INSTALL_DIR)/usr/lib/xen*/boot/*
+@@ -144,6 +152,32 @@ install-libxen-dev_$(ARCH): $(STAMPS_DIR)/install-utils_$(ARCH)
+ 	dh_shlibdeps
+ 	+$(MAKE_SELF) install-base
+ 
++install-lib-ocaml_$(ARCH): DIR = $(BUILD_DIR)/install-utils_$(ARCH)_ocaml
++install-lib-ocaml_$(ARCH): PACKAGE_NAME = libxen-$(VERSION)-ocaml
++install-lib-ocaml_$(ARCH): DH_OPTIONS = -p$(PACKAGE_NAME)
++install-lib-ocaml_$(ARCH): $(STAMPS_DIR)/install-utils_$(ARCH)
++	dh_testdir
++	dh_testroot
++	dh_prep
++	dh_install --sourcedir=$(DIR)
++	dh_strip
++	dh_shlibdeps
++	dh_ocaml
++	+$(MAKE_SELF) install-base
++
++install-lib-ocaml-dev_$(ARCH): DIR = $(BUILD_DIR)/install-utils_$(ARCH)_ocaml
++install-lib-ocaml-dev_$(ARCH): PACKAGE_NAME = libxen-$(VERSION)-ocaml-dev
++install-lib-ocaml-dev_$(ARCH): DH_OPTIONS = -p$(PACKAGE_NAME)
++install-lib-ocaml-dev_$(ARCH): $(STAMPS_DIR)/install-utils_$(ARCH)
++	dh_testdir
++	dh_testroot
++	dh_prep
++	dh_install --sourcedir=$(DIR)
++	dh_strip
++	dh_shlibdeps
++	dh_ocaml
++	+$(MAKE_SELF) install-base
++
+ install-libxenstore_$(ARCH): DIR = $(BUILD_DIR)/install-utils_$(ARCH)
+ install-libxenstore_$(ARCH): PACKAGE_NAME = libxenstore3.0
+ install-libxenstore_$(ARCH): DH_OPTIONS = -p$(PACKAGE_NAME)
+diff --git a/xen/debian/templates/control.main.in b/xen/debian/templates/control.main.in
+index 1bc913f..efea838 100644
+--- a/xen/debian/templates/control.main.in
++++ b/xen/debian/templates/control.main.in
+@@ -33,3 +33,19 @@ Replaces: xen-utils-common (<= 3.1.0-1)
+ Description: Xenstore utilities for Xen
+  This package contains the Xenstore utilities.
+ 
++Package: libxen-@version@-ocaml
++Section: ocaml
++Depends: ocaml-base-nox-${F:OCamlABI}, ${shlibs:Depends}, ${misc:Depends}, ${ocaml:Depends}
++Provides: ${ocaml:Provides}
++Description: OCaml libraries for controlling Xen 
++ This package contains the runtime libraries required for the ocaml bindings
++ to the Xen control libraries.
++
++Package: libxen-@version@-ocaml-dev
++Section: ocaml
++Depends: libxen-@version@-ocaml (= ${binary:Version}), ${shlibs:Depends}, ocaml-findlib (>= 1.1), ${misc:Depends}, ${ocaml:Depends}
++Provides: ${ocaml:Provides}
++Description: OCaml libraries for controlling Xen (devel package)
++ This package contains the ocaml findlib packages for compiling applications
++ that are designed to control the Xen hypervisor.
++
+diff --git a/xen/debian/templates/control.source.in b/xen/debian/templates/control.source.in
+index 388d251..6790bd2 100644
+--- a/xen/debian/templates/control.source.in
++++ b/xen/debian/templates/control.source.in
+@@ -17,7 +17,10 @@ Build-Depends:
+  libpci-dev,
+  pkg-config,
+  uuid-dev,
+- zlib1g-dev
++ zlib1g-dev,
++ ocaml-nox (>= 3.11.1-3~),
++ dh-ocaml (>= 0.9~),
++ ocaml-findlib
+ Build-Depends-Indep:
+  graphviz,
+  ghostscript,
+diff --git a/xen/debian/templates/libxen-ocaml-dev.install.in b/xen/debian/templates/libxen-ocaml-dev.install.in
+new file mode 100644
+index 0000000..23eaf89
+--- /dev/null
++++ b/xen/debian/templates/libxen-ocaml-dev.install.in
+@@ -0,0 +1,25 @@
++@ocaml_stdlib_dir@/xenlight/*.cmi
++@ocaml_stdlib_dir@/xenbus/*.cmi
++@ocaml_stdlib_dir@/xenctrl/*.cmi
++@ocaml_stdlib_dir@/xenstore/*.cmi
++@ocaml_stdlib_dir@/xeneventchn/*.cmi
++@ocaml_stdlib_dir@/xenmmap/*.cmi
++@ocaml_stdlib_dir@/xenlight/*.cmx
++@ocaml_stdlib_dir@/xenbus/*.cmx
++@ocaml_stdlib_dir@/xenctrl/*.cmx
++@ocaml_stdlib_dir@/xenstore/*.cmx
++@ocaml_stdlib_dir@/xeneventchn/*.cmx
++@ocaml_stdlib_dir@/xenmmap/*.cmx
++@ocaml_stdlib_dir@/xenlight/*.cmxa
++@ocaml_stdlib_dir@/xenbus/*.cmxa
++@ocaml_stdlib_dir@/xenctrl/*.cmxa
++@ocaml_stdlib_dir@/xenstore/*.cmxa
++@ocaml_stdlib_dir@/xeneventchn/*.cmxa
++@ocaml_stdlib_dir@/xenmmap/*.cmxa
++@ocaml_stdlib_dir@/xenlight/*.a
++@ocaml_stdlib_dir@/xenbus/*.a
++@ocaml_stdlib_dir@/xenctrl/*.a
++@ocaml_stdlib_dir@/xenstore/*.a
++@ocaml_stdlib_dir@/xeneventchn/*.a
++@ocaml_stdlib_dir@/xenmmap/*.a
++
+diff --git a/xen/debian/templates/libxen-ocaml.install.in b/xen/debian/templates/libxen-ocaml.install.in
+new file mode 100644
+index 0000000..e7c8167
+--- /dev/null
++++ b/xen/debian/templates/libxen-ocaml.install.in
+@@ -0,0 +1,14 @@
++@ocaml_dll_dir@/dll*_stubs.so*
++@ocaml_stdlib_dir@/xenlight/META
++@ocaml_stdlib_dir@/xenlight/*.cma
++@ocaml_stdlib_dir@/xenbus/META
++@ocaml_stdlib_dir@/xenbus/*.cma
++@ocaml_stdlib_dir@/xenctrl/META
++@ocaml_stdlib_dir@/xenctrl/*.cma
++@ocaml_stdlib_dir@/xenstore/META
++@ocaml_stdlib_dir@/xenstore/*.cma
++@ocaml_stdlib_dir@/xeneventchn/META
++@ocaml_stdlib_dir@/xeneventchn/*.cma
++@ocaml_stdlib_dir@/xenmmap/META
++@ocaml_stdlib_dir@/xenmmap/*.cma
++
+-- 
+1.7.5.4
+

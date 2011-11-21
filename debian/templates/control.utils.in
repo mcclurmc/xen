@@ -1,0 +1,9 @@
+Package: xen-utils-@version@
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, xen-utils-common (>= 3.4.2-4)
+Recommends: bridge-utils, libc6-xen [i386], xen-hypervisor-@version@, qemu-keymaps, qemu-utils
+Provides: xen-utils
+Suggests: xen-docs-@version@
+Description: XEN administrative tools
+ The userspace tools to manage a system virtualized through the XEN virtual
+ machine monitor.
+

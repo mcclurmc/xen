@@ -1,0 +1,22 @@
+--- a/tools/xenpaging/Makefile
++++ b/tools/xenpaging/Makefile
+@@ -4,7 +4,7 @@
+ CFLAGS   += -I $(XEN_XC)
+ CFLAGS   += -I ./
+ CFLAGS   += $(CFLAGS_libxenctrl) $(CFLAGS_libxenstore)
+-LDLIBS  += $(LDLIBS_libxenctrl) $(LDLIBS_libxenstore)
++LDLIBS  += $(LDLIBS_libxenctrl) $(LDLIBS_libxenstore) $(call LDFLAGS_RPATH,../lib)
+ 
+ POLICY    = default
+ 
+@@ -28,8 +28,8 @@
+ 
+ install: all
+ 	$(INSTALL_DIR) $(DESTDIR)/var/lib/xen/xenpaging
+-	$(INSTALL_DIR) $(DESTDIR)$(SBINDIR)
+-	$(INSTALL_PROG) $(IBINS) $(DESTDIR)$(SBINDIR)
++	$(INSTALL_DIR) $(DESTDIR)$(PRIVATE_BINDIR)
++	$(INSTALL_PROG) $(IBINS) $(DESTDIR)$(PRIVATE_BINDIR)
+ 
+ clean:
+ 	rm -f *.o *~ $(DEPS) xen TAGS $(IBINS) $(LIB)
