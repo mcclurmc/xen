@@ -60,7 +60,7 @@ Package: libxen-4.1-ocaml-dev
 Architecture: amd64 i386
 Section: ocaml
 Provides: ${ocaml:Provides}
-Depends: libxen-4.1-ocaml (= ${binary:Version}), ${shlibs:Depends}, ocaml-findlib (>= 1.1), ${misc:Depends}, ${ocaml:Depends}
+Depends: libxen-4.1-ocaml (= ${binary:Version}), ${shlibs:Depends}, ocaml-findlib (>= 1.1), ${misc:Depends}, ${ocaml:Depends}, libxen-dev
 Description: OCaml libraries for controlling Xen (devel package)
  This package contains the ocaml findlib packages for compiling
  applications that are designed to control the Xen hypervisor.

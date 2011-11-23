@@ -43,7 +43,7 @@ Description: OCaml libraries for controlling Xen
 
 Package: libxen-@version@-ocaml-dev
 Section: ocaml
-Depends: libxen-@version@-ocaml (= ${binary:Version}), ${shlibs:Depends}, ocaml-findlib (>= 1.1), ${misc:Depends}, ${ocaml:Depends}
+Depends: libxen-@version@-ocaml (= ${binary:Version}), ${shlibs:Depends}, ocaml-findlib (>= 1.1), ${misc:Depends}, ${ocaml:Depends}, libxen-dev
 Provides: ${ocaml:Provides}
 Description: OCaml libraries for controlling Xen (devel package)
  This package contains the ocaml findlib packages for compiling applications
