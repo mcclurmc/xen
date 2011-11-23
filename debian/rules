@@ -3,6 +3,11 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
+# Ubuntu passes a default LDFLAGS value of -Wl,-Bsymbolic-functions
+# Xen passed LDFLAGS directly to ld (not through gcc), so this fails.
+# We should update this if the default LDFLAGS is changed.
+LDFLAGS = -Bsymbolic-functions
+
 DEB_HOST_ARCH  := $(shell dpkg-architecture -qDEB_HOST_ARCH)
 DEB_BUILD_ARCH := $(shell dpkg-architecture -qDEB_BUILD_ARCH)
 
