@@ -159,7 +159,9 @@ install-lib-ocaml_$(ARCH): $(STAMPS_DIR)/install-utils_$(ARCH)
 	dh_testdir
 	dh_testroot
 	dh_prep
-	dh_install --sourcedir=$(DIR)
+	dh_install --sourcedir=$(DIR) $(OCAML_STDLIB_DIR)/*/META
+	dh_install --sourcedir=$(DIR) $(OCAML_STDLIB_DIR)/*/*.cma
+	dh_install --sourcedir=$(DIR) $(OCAML_DLL_DIR)/*
 	dh_strip
 	dh_shlibdeps
 	dh_ocaml
@@ -172,7 +174,10 @@ install-lib-ocaml-dev_$(ARCH): $(STAMPS_DIR)/install-utils_$(ARCH)
 	dh_testdir
 	dh_testroot
 	dh_prep
-	dh_install --sourcedir=$(DIR)
+	dh_install --sourcedir=$(DIR) $(OCAML_STDLIB_DIR)/*/*.cmx
+	dh_install --sourcedir=$(DIR) $(OCAML_STDLIB_DIR)/*/*.cmxa
+	dh_install --sourcedir=$(DIR) $(OCAML_STDLIB_DIR)/*/*.cmi
+	dh_install --sourcedir=$(DIR) $(OCAML_STDLIB_DIR)/*/*.a
 	dh_strip
 	dh_shlibdeps
 	dh_ocaml

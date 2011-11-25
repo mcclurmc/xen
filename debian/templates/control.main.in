@@ -35,7 +35,7 @@ Description: Xenstore utilities for Xen
 
 Package: libxen-@version@-ocaml
 Section: ocaml
-Depends: ocaml-base-nox-${F:OCamlABI}, ${shlibs:Depends}, ${misc:Depends}, ${ocaml:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${ocaml:Depends}
 Provides: ${ocaml:Provides}
 Description: OCaml libraries for controlling Xen 
  This package contains the runtime libraries required for the ocaml bindings
