@@ -61,11 +61,11 @@ Signed-off-by: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
 @@ -21,9 +21,11 @@
  
  CFLAGS_libxenctrl = -I$(XEN_LIBXC) $(CFLAGS_include)
- LDLIBS_libxenctrl = $(XEN_LIBXC)/libxenctrl-$(XEN_VERSION).so $(DLOPEN_LIBS)
+ LDLIBS_libxenctrl = -L$(XEN_LIBXC) -lxenctrl $(DLOPEN_LIBS)
 +LDLIBS_libxenctrl_SYSTEM = -lxenctrl-$(XEN_VERSION)
  
  CFLAGS_libxenguest = -I$(XEN_LIBXC) $(CFLAGS_include)
- LDLIBS_libxenguest = $(XEN_LIBXC)/libxenguest-$(XEN_VERSION).so
+ LDLIBS_libxenguest = -L$(XEN_LIBXC) -lxenguest
 +LDLIBS_libxenguest_SYSTEM = -lxenguest-$(XEN_VERSION)
  
  CFLAGS_libxenstore = -I$(XEN_XENSTORE) $(CFLAGS_include)
