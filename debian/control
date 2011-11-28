@@ -47,7 +47,7 @@ Conflicts: xen-utils-common (<= 3.1.0-1)
 Description: Xenstore utilities for Xen
  This package contains the Xenstore utilities.
 
-Package: libxen-4.1-ocaml
+Package: libxen-ocaml
 Architecture: amd64 i386
 Section: ocaml
 Provides: ${ocaml:Provides}
@@ -56,7 +56,7 @@ Description: OCaml libraries for controlling Xen
  This package contains the runtime libraries required for the ocaml
  bindings to the Xen control libraries.
 
-Package: libxen-4.1-ocaml-dev
+Package: libxen-ocaml-dev
 Architecture: amd64 i386
 Section: ocaml
 Provides: ${ocaml:Provides}

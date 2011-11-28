@@ -3,11 +3,6 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-# Ubuntu passes a default LDFLAGS value of -Wl,-Bsymbolic-functions
-# Xen passed LDFLAGS directly to ld (not through gcc), so this fails.
-# We should update this if the default LDFLAGS is changed.
-LDFLAGS = -Bsymbolic-functions
-
 DEB_HOST_ARCH  := $(shell dpkg-architecture -qDEB_HOST_ARCH)
 DEB_BUILD_ARCH := $(shell dpkg-architecture -qDEB_BUILD_ARCH)
 
@@ -19,11 +14,6 @@ VERSION_BINNMU := $(shell echo "$(VERSION)" | sed -ne 's,.*\+b\(.*\)$$,\1,p')
 stamp = [ -d $(dir $@) ] || mkdir $(dir $@); touch $@
 
 include debian/rules.defs
-ifneq ($(wildcard /usr/share/ocaml/ocamlvars.mk),/usr/share/ocaml/ocamlvars.mk)
-  $(error /usr/share/ocaml/ocamlvars.mk not found - please install dh-ocaml)
-else
-  include /usr/share/ocaml/ocamlvars.mk
-endif
 
 setup: debian/control $(STAMPS_DIR)/setup-base
 $(STAMPS_DIR)/setup-base:
